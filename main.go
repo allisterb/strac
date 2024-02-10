@@ -1,10 +1,8 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/alecthomas/kong"
 	logging "github.com/ipfs/go-log/v2"
@@ -21,12 +19,19 @@ type PingCmd struct {
 type NewAccountCmd struct {
 }
 
+type BalanceCmd struct {
+	Account string `help:"Enable debug mode."`
+	Block   int64  `help:"The URL of the Stratis node HTTP API." default:"0"`
+}
+
 // Command-line arguments
 var CLI struct {
 	Debug      bool          `help:"Enable debug mode."`
-	RPCUrl     string        `help:"The URL of the Stratis node RPC." default:"http://localhost:4545"`
+	HttpUrl    string        `help:"The URL of the Stratis node HTTP API." default:"http://localhost:4545"`
+	Timeout    int           `help:"Timeout for network operations." default:"10"`
 	Ping       PingCmd       `cmd:"" help:"Ping the Stratis node."`
-	NewAccount NewAccountCmd `cmd:"" help:"Create a new account."`
+	NewAccount NewAccountCmd `cmd:"" help:"Create a new Stratis account."`
+	Balance    BalanceCmd    `cmd:"" help:"Get the balance of a Stratis account."`
 }
 
 var log = logging.Logger("strick/main")
@@ -54,20 +59,22 @@ func main() {
 	renderStr, _ := ascii.RenderOpts("strick", options)
 	fmt.Print(renderStr)
 	ctx := kong.Parse(&CLI)
-	blockchain.HttpUrl = CLI.RPCUrl
-	ctx.FatalIfErrorf(ctx.Run(&kong.Context{}))
+	err := blockchain.Init(CLI.HttpUrl, CLI.Timeout)
+	if err != nil {
+		log.Fatalf("error connecting to node API at %s: %v", CLI.HttpUrl, err)
+	} else {
+		ctx.FatalIfErrorf(ctx.Run(&kong.Context{}))
+	}
 }
 
 func (l *PingCmd) Run(ctx *kong.Context) error {
-	cctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	err := blockchain.Ping(cctx)
-	if err != nil {
-		log.Errorf("Error pinging node at %v: %v", CLI.RPCUrl, err)
-	}
-	cancel()
-	return nil
+	return blockchain.Ping()
 }
 
 func (l *NewAccountCmd) Run(ctx *kong.Context) error {
-	return accounts.Create()
+	return accounts.NewAccount()
+}
+
+func (l *BalanceCmd) Run(ctx *kong.Context) error {
+	return accounts.BalanceAt(l.Account, l.Block)
 }
