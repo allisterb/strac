@@ -10,6 +10,7 @@ import (
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/mbndr/figlet4go"
 
+	"github.com/allisterb/strick/accounts"
 	"github.com/allisterb/strick/blockchain"
 	"github.com/allisterb/strick/util"
 )
@@ -17,11 +18,15 @@ import (
 type PingCmd struct {
 }
 
+type NewAccountCmd struct {
+}
+
 // Command-line arguments
 var CLI struct {
-	Debug  bool    `help:"Enable debug mode."`
-	RPCUrl string  `help:"The URL of the Stratis node RPC." default:"http://localhost:4545"`
-	Ping   PingCmd `cmd:"" help:"Ping the Stratis node."`
+	Debug      bool          `help:"Enable debug mode."`
+	RPCUrl     string        `help:"The URL of the Stratis node RPC." default:"http://localhost:4545"`
+	Ping       PingCmd       `cmd:"" help:"Ping the Stratis node."`
+	NewAccount NewAccountCmd `cmd:"" help:"Create a new account."`
 }
 
 var log = logging.Logger("strick/main")
@@ -49,15 +54,20 @@ func main() {
 	renderStr, _ := ascii.RenderOpts("strick", options)
 	fmt.Print(renderStr)
 	ctx := kong.Parse(&CLI)
+	blockchain.HttpUrl = CLI.RPCUrl
 	ctx.FatalIfErrorf(ctx.Run(&kong.Context{}))
 }
 
 func (l *PingCmd) Run(ctx *kong.Context) error {
-	cctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
-	err := blockchain.Ping(cctx, CLI.RPCUrl)
+	cctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	err := blockchain.Ping(cctx)
 	if err != nil {
 		log.Errorf("Error pinging node at %v: %v", CLI.RPCUrl, err)
 	}
 	cancel()
 	return nil
+}
+
+func (l *NewAccountCmd) Run(ctx *kong.Context) error {
+	return accounts.Create()
 }
