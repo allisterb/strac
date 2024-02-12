@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/allisterb/strick/blockchain"
+	logging "github.com/ipfs/go-log/v2"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	logging "github.com/ipfs/go-log/v2"
+
+	"github.com/allisterb/strick/blockchain"
+	"github.com/allisterb/strick/util"
 )
 
 var log = logging.Logger("strick/accounts")
@@ -48,7 +51,7 @@ func BalanceAt(_account string, _block int64) error {
 	if err != nil {
 		return err
 	} else {
-		log.Infof("Balance of account %v is %v.", account, bal)
+		log.Infof("Balance of account %v is %v STRAX.", account, util.WeiToEther(bal))
 		return nil
 	}
 }

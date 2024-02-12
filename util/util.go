@@ -1,8 +1,11 @@
 package util
 
 import (
+	"math/big"
 	"os"
 	"path/filepath"
+
+	"github.com/ethereum/go-ethereum/params"
 )
 
 var AppData = filepath.Join(GetUserHomeDir(), ".struck")
@@ -32,4 +35,12 @@ func PathExists(path string) bool {
 	} else {
 		return true
 	}
+}
+
+func EtherToWei(val *big.Int) *big.Int {
+	return new(big.Int).Mul(val, big.NewInt(params.Ether))
+}
+
+func WeiToEther(val *big.Int) *big.Int {
+	return new(big.Int).Div(val, big.NewInt(params.Ether))
 }

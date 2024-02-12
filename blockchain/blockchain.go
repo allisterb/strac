@@ -16,7 +16,7 @@ var Client *ethclient.Client
 var Ctx context.Context
 
 func Init(httpUrl string, timeout int) error {
-	ctx, _ := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second) //nolint:all
 	client, err := ethclient.DialContext(ctx, httpUrl)
 	if err != nil {
 		return fmt.Errorf("error pinging node: %v", err)
@@ -29,17 +29,19 @@ func Init(httpUrl string, timeout int) error {
 }
 
 func Ping() error {
-	client, err := ethclient.DialContext(Ctx, HttpUrl)
-	if err != nil {
-		return fmt.Errorf("error pinging node: %v", err)
-	}
-	chainid, err := client.ChainID(Ctx)
+	chainid, err := Client.ChainID(Ctx)
 	if err != nil {
 		return fmt.Errorf("error pinging node: %v", err)
 	} else {
 		log.Infof("Chain id of node at %v is %v.", HttpUrl, chainid)
 	}
-	sp, err := client.SyncProgress(Ctx)
+	block, err := Client.BlockNumber(Ctx)
+	if err != nil {
+		return fmt.Errorf("error pinging node: %v", err)
+	} else {
+		log.Infof("Most recent block of node at %v is %v.", HttpUrl, block)
+	}
+	sp, err := Client.SyncProgress(Ctx)
 	if err != nil {
 		return fmt.Errorf("error pinging node: %v", err)
 	} else if sp == nil {
@@ -47,5 +49,6 @@ func Ping() error {
 	} else {
 		log.Infof("Node at %v is at block %v of %v. Node synced: %v.", HttpUrl, sp.CurrentBlock, sp.HighestBlock, sp.Done())
 	}
+
 	return nil
 }
