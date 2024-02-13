@@ -17,7 +17,16 @@ import (
 
 var log = logging.Logger("strick/accounts")
 
-func NewAccount() error {
+func NewAccount(WalletDir *string) error {
+	if WalletDir != nil {
+		log.Infof("Creating keystore file at %s...", *WalletDir)
+		log.Info("Enter the passphrase for this keystore file")
+		_, err := util.GetPassPhrase(true)
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("not implemented")
+	}
 	privateKey, err := crypto.GenerateKey()
 	if err != nil {
 		return err

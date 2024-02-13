@@ -17,11 +17,12 @@ type PingCmd struct {
 }
 
 type NewAccountCmd struct {
+	WalletDir string `help:"The directory to create the encrypted wallet (keystore) file."`
 }
 
 type BalanceCmd struct {
-	Account string `help:"Enable debug mode."`
-	Block   int64  `help:"The URL of the Stratis node HTTP API." default:"0"`
+	Account string `help:"The Stratis account to query balance for. 40-byte hex string beginning with 0x"`
+	Block   int64  `help:"The block number to retrieve the account balance at. Leave out to query the latest block." default:"0"`
 }
 
 // Command-line arguments
@@ -72,7 +73,7 @@ func (l *PingCmd) Run(ctx *kong.Context) error {
 }
 
 func (l *NewAccountCmd) Run(ctx *kong.Context) error {
-	return accounts.NewAccount()
+	return accounts.NewAccount(&l.WalletDir)
 }
 
 func (l *BalanceCmd) Run(ctx *kong.Context) error {

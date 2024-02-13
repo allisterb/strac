@@ -1,10 +1,12 @@
 package util
 
 import (
+	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
 
+	"github.com/ethereum/go-ethereum/console/prompt"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -43,4 +45,21 @@ func EtherToWei(val *big.Int) *big.Int {
 
 func WeiToEther(val *big.Int) *big.Int {
 	return new(big.Int).Div(val, big.NewInt(params.Ether))
+}
+
+func GetPassPhrase(confirmation bool) (*string, error) {
+	password, err := prompt.Stdin.PromptPassword("Password: ")
+	if err != nil {
+		return nil, fmt.Errorf("Failed to read password: %v", err)
+	}
+	if confirmation {
+		confirm, err := prompt.Stdin.PromptPassword("Repeat password: ")
+		if err != nil {
+			return nil, fmt.Errorf("Failed to read password confirmation: %v", err)
+		}
+		if password != confirm {
+			return nil, fmt.Errorf("Passwords do not match")
+		}
+	}
+	return &password, nil
 }
