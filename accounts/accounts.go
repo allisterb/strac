@@ -11,11 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/allisterb/strick/blockchain"
-	"github.com/allisterb/strick/util"
+	"github.com/allisterb/strac/blockchain"
+	"github.com/allisterb/strac/util"
 )
 
-var log = logging.Logger("strick/accounts")
+var log = logging.Logger("strac/accounts")
 
 func NewAccount(WalletDir *string) error {
 	if WalletDir != nil {

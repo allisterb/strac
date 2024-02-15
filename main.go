@@ -8,9 +8,9 @@ import (
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/mbndr/figlet4go"
 
-	"github.com/allisterb/strick/accounts"
-	"github.com/allisterb/strick/blockchain"
-	"github.com/allisterb/strick/util"
+	"github.com/allisterb/strac/accounts"
+	"github.com/allisterb/strac/blockchain"
+	"github.com/allisterb/strac/util"
 )
 
 type PingCmd struct {
@@ -42,7 +42,7 @@ var CLI struct {
 	Balance       BalanceCmd    `cmd:"" help:"Get the balance of a Stratis account."`
 }
 
-var log = logging.Logger("strick/main")
+var log = logging.Logger("strac/main")
 
 func init() {
 	if os.Getenv("GOLOG_LOG_LEVEL") == "" {

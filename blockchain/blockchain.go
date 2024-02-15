@@ -14,7 +14,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-var log = logging.Logger("strick/blockchain")
+var log = logging.Logger("strac/blockchain")
 
 var HttpUrl = ""
 var BeaconHttpUrl = ""

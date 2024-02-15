@@ -1,4 +1,4 @@
-module github.com/allisterb/strick
+module github.com/allisterb/strac
 
 go 1.19
 
