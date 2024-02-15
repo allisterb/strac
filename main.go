@@ -16,23 +16,30 @@ import (
 type PingCmd struct {
 }
 
+type InfoCmd struct {
+	Genesis    bool `help:"Get info on the chain genesis and forks." default:"false"`
+	Validators bool `help:"Get info on any connected validators." default:"false"`
+}
+
 type NewAccountCmd struct {
 	WalletDir string `help:"The directory to create the encrypted wallet (keystore) file."`
 }
 
 type BalanceCmd struct {
 	Account string `help:"The Stratis account to query balance for. 40-byte hex string beginning with 0x"`
-	Block   int64  `help:"The block number to retrieve the account balance at. Leave out to query the latest block." default:"0"`
+	Block   int64  `help:"The block number to retrieve the account balance at. Omit to query the latest block." default:"0"`
 }
 
 // Command-line arguments
 var CLI struct {
-	Debug      bool          `help:"Enable debug mode."`
-	HttpUrl    string        `help:"The URL of the Stratis node HTTP API." default:"http://localhost:4545"`
-	Timeout    int           `help:"Timeout for network operations." default:"10"`
-	Ping       PingCmd       `cmd:"" help:"Ping the Stratis node."`
-	NewAccount NewAccountCmd `cmd:"" help:"Create a new Stratis account."`
-	Balance    BalanceCmd    `cmd:"" help:"Get the balance of a Stratis account."`
+	Debug         bool          `help:"Enable debug mode."`
+	HttpUrl       string        `help:"The URL of the Stratis node HTTP API." default:"http://localhost:8545"`
+	BeaconHttpUrl string        `help:"The URL of the Stratis beacon client HTTP API." default:"http://localhost:3500"`
+	Timeout       int           `help:"Timeout for network operations." default:"10"`
+	Ping          PingCmd       `cmd:"" help:"Ping the Stratis node."`
+	Info          InfoCmd       `cmd:"" help:"Get information on the Stratis network."`
+	NewAccount    NewAccountCmd `cmd:"" help:"Create a new Stratis account."`
+	Balance       BalanceCmd    `cmd:"" help:"Get the balance of a Stratis account."`
 }
 
 var log = logging.Logger("strick/main")
@@ -57,10 +64,10 @@ func main() {
 		figlet4go.ColorMagenta,
 		figlet4go.ColorYellow,
 	}
-	renderStr, _ := ascii.RenderOpts("strick", options)
+	renderStr, _ := ascii.RenderOpts("strac", options)
 	fmt.Print(renderStr)
 	ctx := kong.Parse(&CLI)
-	err := blockchain.Init(CLI.HttpUrl, CLI.Timeout)
+	err := blockchain.Init(CLI.HttpUrl, CLI.BeaconHttpUrl, CLI.Timeout)
 	if err != nil {
 		log.Fatalf("error connecting to node API at %s: %v", CLI.HttpUrl, err)
 	} else {
@@ -70,6 +77,10 @@ func main() {
 
 func (l *PingCmd) Run(ctx *kong.Context) error {
 	return blockchain.Ping()
+}
+
+func (l *InfoCmd) Run(ctx *kong.Context) error {
+	return blockchain.Info(l.Genesis, l.Validators)
 }
 
 func (l *NewAccountCmd) Run(ctx *kong.Context) error {

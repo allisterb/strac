@@ -56,7 +56,7 @@ func BalanceAt(_account string, _block int64) error {
 		block = big.NewInt(_block)
 	}
 	account := common.BytesToAddress(bytes)
-	bal, err := blockchain.Client.BalanceAt(blockchain.Ctx, account, block)
+	bal, err := blockchain.NodeClient.BalanceAt(blockchain.Ctx, account, block)
 	if err != nil {
 		return err
 	} else {
