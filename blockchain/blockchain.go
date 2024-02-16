@@ -8,6 +8,7 @@ import (
 	eth2client "github.com/attestantio/go-eth2-client"
 	"github.com/attestantio/go-eth2-client/api"
 	"github.com/attestantio/go-eth2-client/http"
+	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/ethclient"
 	logging "github.com/ipfs/go-log/v2"
@@ -32,7 +33,8 @@ func Init(httpUrl string, beaconHttpUrl string, timeout int) error {
 		// WithAddress supplies the address of the beacon node, as a URL.
 		http.WithAddress(beaconHttpUrl),
 		// LogLevel supplies the level of logging to carry out.
-		http.WithLogLevel(zerolog.ErrorLevel),
+		http.WithLogLevel(zerolog.Disabled),
+		http.WithTimeout(time.Duration(timeout)*time.Second),
 	)
 	if err != nil {
 		return err
@@ -69,7 +71,20 @@ func Ping() error {
 	return nil
 }
 
-func Info(genesis bool, validators bool) error {
+func Info(genesis bool, validatorPubKey string) error {
+	/*
+		var slotHead phase0.Slot
+		if provider, isProvider := BeaconClient.(eth2client.); isProvider {
+			response, err := provider.SlotFromStateID(Ctx, "head")
+			if err != nil {
+				return err
+			} else {
+				slotHead = response
+				log.Infof("Head is at slot: %v", slotHead)
+			}
+		} else {
+			return fmt.Errorf("could not get GenesisProvider interface")
+		}*/
 	if genesis {
 		if provider, isProvider := BeaconClient.(eth2client.GenesisProvider); isProvider {
 			response, err := provider.Genesis(Ctx, &api.GenesisOpts{})
@@ -96,14 +111,25 @@ func Info(genesis bool, validators bool) error {
 		}
 	}
 
-	if validators {
+	if validatorPubKey != "" {
 		if provider, isProvider := BeaconClient.(eth2client.ValidatorsProvider); isProvider {
-			response, err := provider.Validators(Ctx, &api.ValidatorsOpts{State: "head"})
+			pkey, _ := hexutil.Decode(validatorPubKey)
+			k := phase0.BLSPubKey{}
+			x := copy(k[:], pkey[:])
+			if x != 48 {
+				return fmt.Errorf("bad copy of validator public key")
+			}
+			response, err := provider.Validators(Ctx, &api.ValidatorsOpts{PubKeys: []phase0.BLSPubKey{k}, State: "head"})
 			if err != nil {
 				return err
+			} else if len(response.Data) != 1 {
+				return fmt.Errorf("length of response data is %v", len(response.Data))
 			} else {
-				log.Infof("validator: %v", response.Data)
-
+				for _, v := range response.Data {
+					log.Infof("Validator index: %v", v.Index)
+					log.Infof("Validator public key: %v", hexutil.Encode(v.Validator.PublicKey[:]))
+					log.Infof("Validator activation epoch: %v", v.Validator.ActivationEpoch)
+				}
 			}
 		} else {
 			return fmt.Errorf("could not get validator interface")

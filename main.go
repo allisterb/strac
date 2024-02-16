@@ -17,8 +17,8 @@ type PingCmd struct {
 }
 
 type InfoCmd struct {
-	Genesis    bool `help:"Get info on the chain genesis and forks." default:"false"`
-	Validators bool `help:"Get info on any connected validators." default:"false"`
+	Genesis         bool   `help:"Get info on the chain genesis and forks." default:"false"`
+	ValidatorPubkey string `help:"Get info on the validator with this public key." default:""`
 }
 
 type NewAccountCmd struct {
@@ -80,7 +80,7 @@ func (l *PingCmd) Run(ctx *kong.Context) error {
 }
 
 func (l *InfoCmd) Run(ctx *kong.Context) error {
-	return blockchain.Info(l.Genesis, l.Validators)
+	return blockchain.Info(l.Genesis, l.ValidatorPubkey)
 }
 
 func (l *NewAccountCmd) Run(ctx *kong.Context) error {
