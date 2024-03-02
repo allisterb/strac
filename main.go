@@ -33,9 +33,9 @@ type BalanceCmd struct {
 }
 
 type ValidatorsCmd struct {
-	Validators []string `arg:"" help:"existingfile"`
-	StateID    string   `help:"The chain state." default:"head"`
-	Epoch      string   `help:"The chain epoch." default:""`
+	Indices []string `help:"A list of indices" sep:""`
+	StateID string   `help:"The chain state." default:"head"`
+	Epoch   string   `help:"The chain epoch." default:""`
 }
 
 // Command-line arguments
@@ -104,6 +104,6 @@ func (l *ValidatorsCmd) Run(ctx *kong.Context) error {
 	if err := validators.Init(); err != nil {
 		return err
 	}
-	_, err := validators.Summary(l.Validators, l.StateID, l.Epoch)
+	_, err := validators.Summary(l.Indices, l.StateID, l.Epoch)
 	return err
 }
