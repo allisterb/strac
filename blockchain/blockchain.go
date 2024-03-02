@@ -19,7 +19,7 @@ var log = logging.Logger("strac/blockchain")
 
 var HttpUrl = ""
 var BeaconHttpUrl = ""
-var NodeClient *ethclient.Client
+var ExecutionClient *ethclient.Client
 var BeaconClient eth2client.Service
 var Ctx context.Context
 
@@ -41,26 +41,26 @@ func Init(httpUrl string, beaconHttpUrl string, timeout int) error {
 	}
 	HttpUrl = httpUrl
 	BeaconHttpUrl = beaconHttpUrl
-	NodeClient = client
+	ExecutionClient = client
 	BeaconClient = bclient
 	Ctx = ctx
 	return nil
 }
 
 func Ping() error {
-	chainid, err := NodeClient.ChainID(Ctx)
+	chainid, err := ExecutionClient.ChainID(Ctx)
 	if err != nil {
 		return fmt.Errorf("error pinging node: %v", err)
 	} else {
 		log.Infof("Chain id of node at %v is %v.", HttpUrl, chainid)
 	}
-	block, err := NodeClient.BlockNumber(Ctx)
+	block, err := ExecutionClient.BlockNumber(Ctx)
 	if err != nil {
 		return fmt.Errorf("error pinging node: %v", err)
 	} else {
 		log.Infof("Most recent block of node at %v is %v.", HttpUrl, block)
 	}
-	sp, err := NodeClient.SyncProgress(Ctx)
+	sp, err := ExecutionClient.SyncProgress(Ctx)
 	if err != nil {
 		return fmt.Errorf("error pinging node: %v", err)
 	} else if sp == nil {
@@ -71,20 +71,36 @@ func Ping() error {
 	return nil
 }
 
-func Info(genesis bool, validatorPubKey string) error {
-	/*
-		var slotHead phase0.Slot
-		if provider, isProvider := BeaconClient.(eth2client.); isProvider {
-			response, err := provider.SlotFromStateID(Ctx, "head")
+func Info(genesis bool, validatorPubKey string, peers bool) error {
+	if validatorPubKey != "" {
+		if provider, isProvider := BeaconClient.(eth2client.ValidatorsProvider); isProvider {
+			pkey, _ := hexutil.Decode(validatorPubKey)
+			k := phase0.BLSPubKey{}
+			x := copy(k[:], pkey[:])
+			if x != 48 {
+				return fmt.Errorf("bad copy of validator public key")
+			}
+			response, err := provider.Validators(Ctx, &api.ValidatorsOpts{PubKeys: []phase0.BLSPubKey{k}, State: "head"})
 			if err != nil {
 				return err
+			} else if len(response.Data) != 1 {
+				return fmt.Errorf("length of response data is %v", len(response.Data))
 			} else {
-				slotHead = response
-				log.Infof("Head is at slot: %v", slotHead)
+				for _, v := range response.Data {
+					log.Infof("Validator index: %v", v.Index)
+					log.Infof("Validator public key: %v", hexutil.Encode(v.Validator.PublicKey[:]))
+					log.Infof("Validator activation eligibility epoch: %v", v.Validator.ActivationEligibilityEpoch)
+					log.Infof("Validator activation epoch: %v", v.Validator.ActivationEpoch)
+					log.Infof("Validator effective balance: %v", v.Validator.EffectiveBalance/1000000000)
+					log.Infof("Validator withdrawal credentials: %v", hexutil.Encode(v.Validator.WithdrawalCredentials))
+				}
 			}
 		} else {
-			return fmt.Errorf("could not get GenesisProvider interface")
-		}*/
+			return fmt.Errorf("could not get validator interface")
+		}
+		return nil
+	}
+
 	if genesis {
 		if provider, isProvider := BeaconClient.(eth2client.GenesisProvider); isProvider {
 			response, err := provider.Genesis(Ctx, &api.GenesisOpts{})
@@ -111,29 +127,34 @@ func Info(genesis bool, validatorPubKey string) error {
 		}
 	}
 
-	if validatorPubKey != "" {
-		if provider, isProvider := BeaconClient.(eth2client.ValidatorsProvider); isProvider {
-			pkey, _ := hexutil.Decode(validatorPubKey)
-			k := phase0.BLSPubKey{}
-			x := copy(k[:], pkey[:])
-			if x != 48 {
-				return fmt.Errorf("bad copy of validator public key")
-			}
-			response, err := provider.Validators(Ctx, &api.ValidatorsOpts{PubKeys: []phase0.BLSPubKey{k}, State: "head"})
+	if peers {
+		if provider, isProvider := BeaconClient.(eth2client.NodePeersProvider); isProvider {
+			response, err := provider.NodePeers(Ctx, &api.NodePeersOpts{State: []string{"connected"}})
 			if err != nil {
 				return err
-			} else if len(response.Data) != 1 {
-				return fmt.Errorf("length of response data is %v", len(response.Data))
 			} else {
-				for _, v := range response.Data {
-					log.Infof("Validator index: %v", v.Index)
-					log.Infof("Validator public key: %v", hexutil.Encode(v.Validator.PublicKey[:]))
-					log.Infof("Validator activation epoch: %v", v.Validator.ActivationEpoch)
+				inbound := 0
+				outbound := 0
+				for _, p := range response.Data {
+					log.Infof("Peer id: %v", p.PeerID)
+					log.Infof("Peer last seen p2p address: %v", p.LastSeenP2PAddress)
+					log.Infof("Peer state: %v", p.State)
+					log.Infof("Peer direction: %v\n", p.Direction)
+					if p.Direction == "inbound" {
+						inbound++
+					} else {
+						outbound++
+					}
 				}
+				log.Infof("Inbound peers: %v", inbound)
+				log.Infof("Outbound peers: %v", outbound)
+				log.Infof("Total connected peers: %v", inbound+outbound)
 			}
 		} else {
-			return fmt.Errorf("could not get validator interface")
+			return fmt.Errorf("could not get GenesisProvider interface")
 		}
+
 	}
+
 	return nil
 }
