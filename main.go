@@ -33,7 +33,7 @@ type BalanceCmd struct {
 }
 
 type ValidatorsCmd struct {
-	Indices []string `help:"A list of indices" sep:""`
+	Indices []string `help:"A list of validator indices."`
 	StateID string   `help:"The chain state." default:"head"`
 	Epoch   string   `help:"The chain epoch." default:""`
 }
@@ -43,7 +43,7 @@ var CLI struct {
 	Debug         bool          `help:"Enable debug mode."`
 	HttpUrl       string        `help:"The URL of the Stratis node HTTP API." default:"http://localhost:8545"`
 	BeaconHttpUrl string        `help:"The URL of the Stratis beacon client HTTP API." default:"http://localhost:3500"`
-	Timeout       int           `help:"Timeout for network operations." default:"10"`
+	Timeout       int           `help:"Timeout for network operations." default:"120"`
 	Ping          PingCmd       `cmd:"" help:"Ping the Stratis node."`
 	Info          InfoCmd       `cmd:"" help:"Get information on the Stratis network."`
 	NewAccount    NewAccountCmd `cmd:"" help:"Create a new Stratis account."`
