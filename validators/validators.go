@@ -134,8 +134,71 @@ func Init() error {
 
 	return nil
 }
+func Summary(validatorsStr []string, stateID string, start string, end string, numEpochs string) error {
+	var err error
+	var startEpoch phase0.Epoch
+	var endEpoch phase0.Epoch
+	var n uint64
 
-func Summary(validatorsStr []string, stateID string, epoch string) (*validatorSummary, error) {
+	if start == "" && end == "" && numEpochs == "" {
+		return fmt.Errorf("at least one of start or end or numEpochs must be specified")
+	}
+	if start != "" && end != "" && numEpochs != "" {
+		return fmt.Errorf("you can't specify all 3 of start and end and numEpochs")
+	}
+	if err = Init(); err != nil {
+		return err
+	}
+
+	if start != "" && numEpochs != "" {
+		if startEpoch, err = chaintime.ParseEpoch(chainTime, start); err != nil {
+			return err
+		}
+		if n, err = strconv.ParseUint(numEpochs, 10, 0); err != nil {
+			return err
+		}
+		endEpoch = startEpoch + phase0.Epoch(n)
+	} else if end != "" && numEpochs != "" {
+		if endEpoch, err = chaintime.ParseEpoch(chainTime, end); err != nil {
+			return err
+		}
+		if n, err = strconv.ParseUint(numEpochs, 10, 0); err != nil {
+			return err
+		}
+		startEpoch = endEpoch - phase0.Epoch(n)
+	} else if start != "" && end != "" {
+		if startEpoch, err = chaintime.ParseEpoch(chainTime, start); err != nil {
+			return err
+		}
+		if endEpoch, err = chaintime.ParseEpoch(chainTime, end); err != nil {
+			return err
+		}
+	}
+
+	log.Infof("start epoch: %v, end epoch: %v", startEpoch, endEpoch)
+	if startEpoch > endEpoch {
+		return fmt.Errorf("the start epoch specified: %v is greater than the end epoch specifed: %v", startEpoch, endEpoch)
+	}
+
+	/*
+		if err != nil {
+			return err
+		}
+
+
+
+		if endEpoch == 0 {
+			return nil
+		}
+
+		if err := Init(); err != nil {
+			return err
+		}
+	*/
+	return nil
+}
+
+func EpochSummary(validatorsStr []string, stateID string, epoch string) (*validatorSummary, error) {
 	var err error
 	log.Infof("fetching validator(s) summary for epoch %s...", epoch)
 	summary := &validatorSummary{}
@@ -182,7 +245,7 @@ func Summary(validatorsStr []string, stateID string, epoch string) (*validatorSu
 		builder.WriteString("  Proposer validators:\n")
 		for _, p := range summary.Proposals {
 			validator := validatorsByIndex[p.Proposer]
-			builder.WriteString(fmt.Sprintf("    %s\n", validator.Validator))
+			builder.WriteString(fmt.Sprintf("    %s\n", validator.Validator.PublicKey.String()))
 		}
 	}
 	if len(summary.NonParticipatingValidators) > 0 {

@@ -27,7 +27,7 @@ func Init(httpUrl string, beaconHttpUrl string, timeout int) error {
 	ctx, _ := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second) //nolint:all
 	client, err := ethclient.DialContext(ctx, httpUrl)
 	if err != nil {
-		return fmt.Errorf("error pinging node: %v", err)
+		return fmt.Errorf("error connecting to node: %v", err)
 	}
 	bclient, err := http.New(ctx,
 		// WithAddress supplies the address of the beacon node, as a URL.
