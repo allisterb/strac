@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	eth2client "github.com/attestantio/go-eth2-client"
 	api "github.com/attestantio/go-eth2-client/api"
@@ -134,38 +135,44 @@ func Init() error {
 
 	return nil
 }
-func Summary(validatorsStr []string, stateID string, start string, end string, numEpochs string) error {
+func Summary(validatorsStr []string, stateID string, start string, end string, num string) error {
 	var err error
 	var startEpoch phase0.Epoch
 	var endEpoch phase0.Epoch
-	var n uint64
+	var numEpochs uint64
 
-	if start == "" && end == "" && numEpochs == "" {
-		return fmt.Errorf("at least one of start or end or numEpochs must be specified")
+	if len(validatorsStr) == 0 {
+		return fmt.Errorf("at least 1 validator index or public key must be specified to retrieve validator info for")
 	}
-	if start != "" && end != "" && numEpochs != "" {
-		return fmt.Errorf("you can't specify all 3 of start and end and numEpochs")
+	if start != "" && end != "" && num != "" {
+		return fmt.Errorf("can't specify all 3 of start and end and num-epochs")
 	}
+
 	if err = Init(); err != nil {
 		return err
 	}
 
-	if start != "" && numEpochs != "" {
+	if start == "" && end == "" && num == "" {
+		startEpoch = chainTime.CurrentEpoch()
+		endEpoch = startEpoch
+	}
+
+	if start != "" && num != "" {
 		if startEpoch, err = chaintime.ParseEpoch(chainTime, start); err != nil {
 			return err
 		}
-		if n, err = strconv.ParseUint(numEpochs, 10, 0); err != nil {
+		if numEpochs, err = strconv.ParseUint(num, 10, 0); err != nil {
 			return err
 		}
-		endEpoch = startEpoch + phase0.Epoch(n)
-	} else if end != "" && numEpochs != "" {
+		endEpoch = startEpoch + phase0.Epoch(numEpochs)
+	} else if end != "" && num != "" {
 		if endEpoch, err = chaintime.ParseEpoch(chainTime, end); err != nil {
 			return err
 		}
-		if n, err = strconv.ParseUint(numEpochs, 10, 0); err != nil {
+		if numEpochs, err = strconv.ParseUint(num, 10, 0); err != nil {
 			return err
 		}
-		startEpoch = endEpoch - phase0.Epoch(n)
+		startEpoch = endEpoch - phase0.Epoch(numEpochs)
 	} else if start != "" && end != "" {
 		if startEpoch, err = chaintime.ParseEpoch(chainTime, start); err != nil {
 			return err
@@ -173,12 +180,39 @@ func Summary(validatorsStr []string, stateID string, start string, end string, n
 		if endEpoch, err = chaintime.ParseEpoch(chainTime, end); err != nil {
 			return err
 		}
+	} else if start == "" && end == "" && num != "" {
+		endEpoch = chainTime.CurrentEpoch()
+		if numEpochs, err = strconv.ParseUint(num, 10, 0); err != nil {
+			return err
+		}
+		startEpoch = endEpoch - phase0.Epoch(numEpochs)
 	}
 
-	log.Infof("start epoch: %v, end epoch: %v", startEpoch, endEpoch)
 	if startEpoch > endEpoch {
 		return fmt.Errorf("the start epoch specified: %v is greater than the end epoch specifed: %v", startEpoch, endEpoch)
 	}
+
+	log.Infof("start epoch: %v, end epoch: %v", startEpoch, endEpoch)
+
+	n := int(endEpoch-startEpoch) + 1
+	wg := new(sync.WaitGroup)
+	wg.Add(n)
+	results := make([]*validatorSummary, n)
+	for i := 0; i < n; i++ {
+		results[i] = &validatorSummary{}
+		e := strconv.FormatUint(uint64(startEpoch+phase0.Epoch(i)), 10)
+		go func(index int, _wg *sync.WaitGroup) {
+			defer _wg.Done()
+			s, err := EpochSummary(validatorsStr, stateID, e)
+			if err != nil {
+				log.Errorf("Error retrieving validator info for epoch %s: %v", e, err)
+			} else {
+				results[index] = s
+			}
+
+		}(i, wg)
+	}
+	wg.Wait()
 
 	/*
 		if err != nil {

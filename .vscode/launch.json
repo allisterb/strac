@@ -10,7 +10,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "main.go",
-            "args": ["validators", "--indices=674", "--epoch=2394"]
+            "args": ["validator-info", "--validators=674", "--num-epochs=3"]
         }
     ]
 }

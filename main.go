@@ -32,25 +32,25 @@ type BalanceCmd struct {
 	Block   int64  `help:"The block number to retrieve the account balance at. Omit to query the latest block." default:"0"`
 }
 
-type ValidatorsCmd struct {
-	Indices   []string `help:"A list of validator indices."`
-	StateID   string   `help:"The chain state." default:"head"`
-	Start     string   `help:"The chain epoch to start validator data collection."`
-	End       string   `help:"The chain epoch to end data collection. Defaults to the most recent epoch." default:""`
-	NumEpochs string   `help:"If either start epoch or end epoch is omitted, indicates how many epochs to collect data from the start or before the end epoch." default:""`
+type ValidatorInfoCmd struct {
+	Validators []string `help:"A list of validator identifiers: either an index or public keys."`
+	StateID    string   `help:"The chain state." default:"head"`
+	Start      string   `help:"The chain epoch to start validator data collection."`
+	End        string   `help:"The chain epoch to end data collection. Defaults to the most recent epoch." default:""`
+	NumEpochs  string   `help:"If either start epoch or end epoch is omitted, indicates how many epochs to collect data from the start or before the end epoch." default:""`
 }
 
 // Command-line arguments
 var CLI struct {
-	Debug         bool          `help:"Enable debug mode."`
-	HttpUrl       string        `help:"The URL of the Stratis execution client HTTP API." default:"http://localhost:8545"`
-	BeaconHttpUrl string        `help:"The URL of the Stratis consensus client HTTP API." default:"http://localhost:3500"`
-	Timeout       int           `help:"Timeout for network operations." default:"120"`
-	Ping          PingCmd       `cmd:"" help:"Ping the Stratis node. This verifies your Stratis node is up and the execution and consensus client HTTP APIs are reachable by strac."`
-	Info          InfoCmd       `cmd:"" help:"Get information on the Stratis network."`
-	NewAccount    NewAccountCmd `cmd:"" help:"Create a new Stratis account."`
-	Balance       BalanceCmd    `cmd:"" help:"Get the balance of a Stratis account."`
-	Validators    ValidatorsCmd `cmd:"" help:"Get info on Stratis validators."`
+	Debug         bool             `help:"Enable debug mode."`
+	HttpUrl       string           `help:"The URL of the Stratis execution client HTTP API." default:"http://localhost:8545"`
+	BeaconHttpUrl string           `help:"The URL of the Stratis consensus client HTTP API." default:"http://localhost:3500"`
+	Timeout       int              `help:"Timeout for network operations." default:"120"`
+	Ping          PingCmd          `cmd:"" help:"Ping the Stratis node. This verifies your Stratis node is up and the execution and consensus client HTTP APIs are reachable by strac."`
+	Info          InfoCmd          `cmd:"" help:"Get information on the Stratis network."`
+	NewAccount    NewAccountCmd    `cmd:"" help:"Create a new Stratis account."`
+	Balance       BalanceCmd       `cmd:"" help:"Get the balance of a Stratis account."`
+	ValidatorInfo ValidatorInfoCmd `cmd:"" help:"Get info on Stratis validators."`
 }
 
 var log = logging.Logger("strac/main")
@@ -102,6 +102,6 @@ func (l *BalanceCmd) Run(ctx *kong.Context) error {
 	return accounts.BalanceAt(l.Account, l.Block)
 }
 
-func (l *ValidatorsCmd) Run(ctx *kong.Context) error {
-	return validators.Summary(l.Indices, l.StateID, l.Start, l.End, l.NumEpochs)
+func (l *ValidatorInfoCmd) Run(ctx *kong.Context) error {
+	return validators.Summary(l.Validators, l.StateID, l.Start, l.End, l.NumEpochs)
 }
