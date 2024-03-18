@@ -9,6 +9,7 @@ require (
 )
 
 require (
+	github.com/aws/aws-sdk-go v1.44.312 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/fatih/color v1.16.0 // indirect
@@ -20,6 +21,7 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/herumi/bls-eth-go-binary v1.31.0 // indirect
 	github.com/huandu/go-clone v1.6.0 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.6 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
@@ -37,6 +39,19 @@ require (
 	github.com/r3labs/sse/v2 v2.10.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rs/zerolog v1.29.1 // indirect
+	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0 // indirect
+	github.com/wealdtech/go-bytesutil v1.2.1 // indirect
+	github.com/wealdtech/go-ecodec v1.1.4 // indirect
+	github.com/wealdtech/go-eth2-util v1.8.2 // indirect
+	github.com/wealdtech/go-eth2-wallet v1.16.0 // indirect
+	github.com/wealdtech/go-eth2-wallet-distributed v1.2.1 // indirect
+	github.com/wealdtech/go-eth2-wallet-encryptor-keystorev4 v1.4.1 // indirect
+	github.com/wealdtech/go-eth2-wallet-hd/v2 v2.7.0 // indirect
+	github.com/wealdtech/go-eth2-wallet-nd/v2 v2.5.0 // indirect
+	github.com/wealdtech/go-eth2-wallet-store-filesystem v1.18.1 // indirect
+	github.com/wealdtech/go-eth2-wallet-store-s3 v1.12.0 // indirect
+	github.com/wealdtech/go-eth2-wallet-store-scratch v1.7.2 // indirect
+	github.com/wealdtech/go-indexer v1.1.0 // indirect
 	go.opentelemetry.io/otel v1.16.0 // indirect
 	go.opentelemetry.io/otel/metric v1.16.0 // indirect
 	go.opentelemetry.io/otel/trace v1.16.0 // indirect
@@ -44,6 +59,7 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.19.1 // indirect
 	golang.org/x/net v0.18.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/cenkalti/backoff.v1 v1.1.0 // indirect

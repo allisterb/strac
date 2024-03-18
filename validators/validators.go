@@ -27,6 +27,11 @@ type validatorFault struct {
 	AttestationData   *phase0.AttestationData `json:"attestation_data,omitempty"`
 	InclusionDistance int                     `json:"inclusion_delay"`
 }
+type attestingValidator struct {
+	Validator *apiv1.Validator      `json:"validator"`
+	Slot      phase0.Slot           `json:"slot"`
+	Committee phase0.CommitteeIndex `json:"committee_index"`
+}
 
 type nonParticipatingValidator struct {
 	Validator phase0.ValidatorIndex `json:"validator_index"`
@@ -67,6 +72,7 @@ type validatorSummary struct {
 	LastSlot                   phase0.Slot                  `json:"last_slot"`
 	ActiveValidators           int                          `json:"active_validators"`
 	ParticipatingValidators    int                          `json:"participating_validators"`
+	AttestingValidators        []*attestingValidator        `json:"attesting_validators"`
 	NonParticipatingValidators []*nonParticipatingValidator `json:"non_participating_validators"`
 	IncorrectHeadValidators    []*validatorFault            `json:"incorrect_head_validators"`
 	UntimelyHeadValidators     []*validatorFault            `json:"untimely_head_validators"`
@@ -76,6 +82,7 @@ type validatorSummary struct {
 	Slots                      []*slot                      `json:"slots"`
 	Proposals                  []*epochProposal             `json:"-"`
 	SyncCommittee              []*epochSyncCommittee        `json:"-"`
+	TextSummary                string
 }
 
 var validatorsProvider eth2client.ValidatorsProvider
@@ -135,13 +142,13 @@ func Init() error {
 
 	return nil
 }
-func Summary(validatorsStr []string, stateID string, start string, end string, num string) error {
+func Summary(validators []string, stateID string, start string, end string, num string) error {
 	var err error
 	var startEpoch phase0.Epoch
 	var endEpoch phase0.Epoch
 	var numEpochs uint64
 
-	if len(validatorsStr) == 0 {
+	if len(validators) == 0 {
 		return fmt.Errorf("at least 1 validator index or public key must be specified to retrieve validator info for")
 	}
 	if start != "" && end != "" && num != "" {
@@ -155,9 +162,17 @@ func Summary(validatorsStr []string, stateID string, start string, end string, n
 	if start == "" && end == "" && num == "" {
 		startEpoch = chainTime.CurrentEpoch()
 		endEpoch = startEpoch
-	}
-
-	if start != "" && num != "" {
+	} else if start != "" && end == "" && num == "" {
+		if startEpoch, err = chaintime.ParseEpoch(chainTime, start); err != nil {
+			return err
+		}
+		endEpoch = startEpoch
+	} else if end != "" && start == "" && num == "" {
+		if endEpoch, err = chaintime.ParseEpoch(chainTime, end); err != nil {
+			return err
+		}
+		startEpoch = endEpoch
+	} else if start != "" && num != "" {
 		if startEpoch, err = chaintime.ParseEpoch(chainTime, start); err != nil {
 			return err
 		}
@@ -192,7 +207,7 @@ func Summary(validatorsStr []string, stateID string, start string, end string, n
 		return fmt.Errorf("the start epoch specified: %v is greater than the end epoch specifed: %v", startEpoch, endEpoch)
 	}
 
-	log.Infof("start epoch: %v, end epoch: %v", startEpoch, endEpoch)
+	log.Infof("fetching validator(s) summary data for start epoch: %v, end epoch: %v.", startEpoch, endEpoch)
 
 	n := int(endEpoch-startEpoch) + 1
 	wg := new(sync.WaitGroup)
@@ -201,34 +216,25 @@ func Summary(validatorsStr []string, stateID string, start string, end string, n
 	for i := 0; i < n; i++ {
 		results[i] = &validatorSummary{}
 		e := strconv.FormatUint(uint64(startEpoch+phase0.Epoch(i)), 10)
-		go func(index int, _wg *sync.WaitGroup) {
-			defer _wg.Done()
-			s, err := EpochSummary(validatorsStr, stateID, e)
+		go func(index int) {
+			s, err := EpochSummary(validators, stateID, e)
 			if err != nil {
 				log.Errorf("Error retrieving validator info for epoch %s: %v", e, err)
 			} else {
 				results[index] = s
 			}
+			wg.Done()
 
-		}(i, wg)
+		}(i)
 	}
 	wg.Wait()
-
-	/*
-		if err != nil {
-			return err
+	for i := 0; i < n; i++ {
+		if results[i].TextSummary == "" {
+			continue
 		}
+		log.Infof(results[i].TextSummary)
+	}
 
-
-
-		if endEpoch == 0 {
-			return nil
-		}
-
-		if err := Init(); err != nil {
-			return err
-		}
-	*/
 	return nil
 }
 
@@ -273,13 +279,12 @@ func EpochSummary(validatorsStr []string, stateID string, epoch string) (*valida
 
 	builder := strings.Builder{}
 
-	builder.WriteString("Epoch ")
-	builder.WriteString(fmt.Sprintf("%d:\n", summary.Epoch))
+	builder.WriteString(fmt.Sprintf("Epoch %d:\n", summary.Epoch))
 	if len(summary.Proposals) > 0 {
 		builder.WriteString("  Proposer validators:\n")
 		for _, p := range summary.Proposals {
 			validator := validatorsByIndex[p.Proposer]
-			builder.WriteString(fmt.Sprintf("    %s\n", validator.Validator.PublicKey.String()))
+			builder.WriteString(fmt.Sprintf("        %s\n", validator.Validator.PublicKey.String()))
 		}
 	}
 	if len(summary.NonParticipatingValidators) > 0 {
@@ -318,8 +323,15 @@ func EpochSummary(validatorsStr []string, stateID string, epoch string) (*valida
 			builder.WriteString(fmt.Sprintf("    %d (slot %d, committee %d, inclusion distance %d)\n", validator.Validator, validator.AttestationData.Slot, validator.AttestationData.Index, validator.InclusionDistance))
 		}
 	}
-	log.Infof("Summary:\n%s", builder.String())
+	if len(summary.AttestingValidators) > 0 {
+		builder.WriteString("  Attesting validators:\n")
+		for _, validator := range summary.AttestingValidators {
+			builder.WriteString(fmt.Sprintf("    %v", validator.Validator.String()))
+		}
+	}
 
+	summary.TextSummary = builder.String()
+	log.Infof("fetching validator(s) summary for epoch %s completed.", epoch)
 	return summary, nil
 }
 
@@ -501,6 +513,7 @@ func processAttesterDuties(validatorsByIndex map[phase0.ValidatorIndex]*apiv1.Va
 		dutiesBySlot[duty.Slot][duty.CommitteeIndex] = append(dutiesBySlot[duty.Slot][duty.CommitteeIndex], duty)
 	}
 
+	summary.AttestingValidators = make([]*attestingValidator, 0)
 	summary.IncorrectHeadValidators = make([]*validatorFault, 0)
 	summary.UntimelyHeadValidators = make([]*validatorFault, 0)
 	summary.UntimelySourceValidators = make([]*validatorFault, 0)
@@ -518,11 +531,17 @@ func processAttesterDuties(validatorsByIndex map[phase0.ValidatorIndex]*apiv1.Va
 	// Use dutiesMap and votes to work out which validators didn't participate.
 	summary.NonParticipatingValidators = make([]*nonParticipatingValidator, 0)
 	for _, index := range activeValidatorIndices {
+		duty := dutiesByValidatorIndex[index]
 		if _, exists := votes[index]; !exists {
 			// Didn't vote.
-			duty := dutiesByValidatorIndex[index]
 			summary.NonParticipatingValidators = append(summary.NonParticipatingValidators, &nonParticipatingValidator{
 				Validator: index,
+				Slot:      duty.Slot,
+				Committee: duty.CommitteeIndex,
+			})
+		} else {
+			summary.AttestingValidators = append(summary.AttestingValidators, &attestingValidator{
+				Validator: validatorsByIndex[index],
 				Slot:      duty.Slot,
 				Committee: duty.CommitteeIndex,
 			})
@@ -542,7 +561,6 @@ func processAttesterDuties(validatorsByIndex map[phase0.ValidatorIndex]*apiv1.Va
 
 	summary.ActiveValidators = len(activeValidators)
 	summary.ParticipatingValidators = len(votes)
-
 	return nil
 }
 
