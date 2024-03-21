@@ -21,6 +21,7 @@ type PingCmd struct {
 }
 
 type InfoCmd struct {
+	Spec            bool   `help:"Print the blockchain configuration values." default:"false"`
 	Genesis         bool   `help:"Get info on the chain genesis and forks." default:"false"`
 	ValidatorPubkey string `help:"Get info on the validator with this public key." default:""`
 	Peers           bool   `help:"Get info on the validator with this public key." default:"false"`
@@ -45,6 +46,10 @@ type AccountCmd struct {
 }
 
 type ValidatorInfoCmd struct {
+	PubKey string `help:"The public key of the validator." default:""`
+}
+
+type ValidatorPerfCmd struct {
 	Validators []string `help:"A list of validator identifiers: either an index or public keys."`
 	StateID    string   `help:"The chain state." default:"head"`
 	Start      string   `help:"The chain epoch to start validator data collection."`
@@ -67,18 +72,23 @@ type WalletCmd struct {
 	List   ListWalletCmd   `cmd:"createw" help:"Create a wallet."`
 }
 
+type ValidatorCmd struct {
+	Info ValidatorInfoCmd `cmd:"" help:"Get info on a validator identified by a public key or index."`
+	Perf ValidatorPerfCmd `cmd:"" help:"Get info on validator performance."`
+}
+
 // Command-line arguments
 var CLI struct {
-	Debug         bool             `help:"Enable debug mode."`
-	Auroria       bool             `help:"Indicates the Auroria testnet should be used. Thhe execution client HTTP API will default to https://auroria.rpc.stratisevm.com/."`
-	HttpUrl       string           `help:"The URL of the Stratis execution client HTTP API." default:"https://rpc.stratisevm.com"`
-	BeaconHttpUrl string           `help:"The URL of the Stratis consensus client HTTP API." default:"http://localhost:3500"`
-	Timeout       int              `help:"Timeout for network operations." default:"120"`
-	Ping          PingCmd          `cmd:"" help:"Ping the Stratis node. This verifies your Stratis node is up and the execution and consensus client HTTP APIs are reachable by strac."`
-	Info          InfoCmd          `cmd:"" help:"Get information on the Stratis network."`
-	Account       AccountCmd       `cmd:"" help:"Work with Stratis accounts."`
-	ValidatorInfo ValidatorInfoCmd `cmd:"" help:"Get info on Stratis validators."`
-	Wallet        WalletCmd        `cmd:"" help:"Work with wallets"`
+	Debug         bool         `help:"Enable debug mode."`
+	Auroria       bool         `help:"Indicates the Auroria testnet should be used. Thhe execution client HTTP API will default to https://auroria.rpc.stratisevm.com/."`
+	HttpUrl       string       `help:"The URL of the Stratis execution client HTTP API." default:"https://rpc.stratisevm.com"`
+	BeaconHttpUrl string       `help:"The URL of the Stratis consensus client HTTP API." default:"http://localhost:3500"`
+	Timeout       int          `help:"Timeout for network operations." default:"120"`
+	Ping          PingCmd      `cmd:"" help:"Ping the Stratis node. This verifies your Stratis node is up and the execution and consensus client HTTP APIs are reachable by strac."`
+	Info          InfoCmd      `cmd:"" help:"Get information on the Stratis network."`
+	Account       AccountCmd   `cmd:"" help:"Work with Stratis accounts."`
+	Validator     ValidatorCmd `cmd:"" help:"Get info on Stratis validators."`
+	Wallet        WalletCmd    `cmd:"" help:"Work with wallets"`
 }
 
 var log = logging.Logger("strac/main")
@@ -115,14 +125,14 @@ func main() {
 	err := blockchain.InitEC(CLI.HttpUrl)
 	if err != nil {
 		log.Fatalf("error connecting to execution client API at %s: %v", CLI.HttpUrl, err)
-	} else {
-
 	}
 	log.Infof("Using execution client API at %v.", CLI.HttpUrl)
+
 	cid, err := blockchain.GetChainID()
 	if err != nil {
 		log.Fatalf("could not get chain id")
 	}
+
 	if CLI.Auroria && cid.Cmp(big.NewInt(205205)) != 0 {
 		if cid == big.NewInt(105105) {
 			log.Fatalf("auroria testnet specified but execution client is on mainnet")
@@ -137,12 +147,12 @@ func main() {
 		}
 	}
 
-	if util.Contains([]string{"validator"}, ctx.Command()) {
+	if util.Contains(ctx.Args, "info") {
 		err := blockchain.InitCC(CLI.BeaconHttpUrl, CLI.Timeout)
 		if err != nil {
 			log.Fatalf("error connecting to consensus client API at %s: %v", CLI.BeaconHttpUrl, err)
 		} else {
-			ctx.FatalIfErrorf(ctx.Run(&kong.Context{}))
+			log.Infof("Using consensus client API at %v.", CLI.BeaconHttpUrl)
 		}
 	}
 	ctx.FatalIfErrorf(ctx.Run(&kong.Context{}))
@@ -153,7 +163,7 @@ func (l *PingCmd) Run(ctx *kong.Context) error {
 }
 
 func (l *InfoCmd) Run(ctx *kong.Context) error {
-	return blockchain.Info(l.Genesis, l.ValidatorPubkey, l.Peers)
+	return blockchain.Info(l.Spec, l.Genesis, l.Peers)
 }
 
 func (l *NewAccountCmd) Run(ctx *kong.Context) error {
@@ -165,8 +175,11 @@ func (l *AccountBalanceCmd) Run(ctx *kong.Context) error {
 }
 
 func (l *ValidatorInfoCmd) Run(ctx *kong.Context) error {
+	return validators.Info(l.PubKey)
+}
 
-	return validators.Summary(l.Validators, l.StateID, l.Start, l.End, l.NumEpochs)
+func (l *ValidatorPerfCmd) Run(ctx *kong.Context) error {
+	return validators.Perf(l.Validators, l.StateID, l.Start, l.End, l.NumEpochs)
 }
 
 func (l *CreateWalletCmd) Run(ctx *kong.Context) error {

@@ -14,6 +14,8 @@ import (
 	api "github.com/attestantio/go-eth2-client/api"
 	apiv1 "github.com/attestantio/go-eth2-client/api/v1"
 	"github.com/attestantio/go-eth2-client/spec/phase0"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/pkg/errors"
 
@@ -142,7 +144,7 @@ func Init() error {
 
 	return nil
 }
-func Summary(validators []string, stateID string, start string, end string, num string) error {
+func Perf(validators []string, stateID string, start string, end string, num string) error {
 	var err error
 	var startEpoch phase0.Epoch
 	var endEpoch phase0.Epoch
@@ -207,7 +209,7 @@ func Summary(validators []string, stateID string, start string, end string, num 
 		return fmt.Errorf("the start epoch specified: %v is greater than the end epoch specifed: %v", startEpoch, endEpoch)
 	}
 
-	log.Infof("fetching validator(s) summary data for start epoch: %v, end epoch: %v.", startEpoch, endEpoch)
+	log.Infof("fetching validator(s) performance data for start epoch: %v, end epoch: %v.", startEpoch, endEpoch)
 
 	n := int(endEpoch-startEpoch) + 1
 	wg := new(sync.WaitGroup)
@@ -240,7 +242,7 @@ func Summary(validators []string, stateID string, start string, end string, num 
 
 func EpochSummary(validatorsStr []string, stateID string, epoch string) (*validatorSummary, error) {
 	var err error
-	log.Infof("fetching validator(s) summary for epoch %s...", epoch)
+	log.Infof("fetching validator(s) data for epoch %s...", epoch)
 	summary := &validatorSummary{}
 	summary.Epoch, err = chaintime.ParseEpoch(chainTime, epoch)
 	if err != nil {
@@ -331,8 +333,37 @@ func EpochSummary(validatorsStr []string, stateID string, epoch string) (*valida
 	}
 
 	summary.TextSummary = builder.String()
-	log.Infof("fetching validator(s) summary for epoch %s completed.", epoch)
+	log.Infof("fetching validator(s) data for epoch %s completed.", epoch)
 	return summary, nil
+}
+
+func Info(validatorPubKey string) error {
+	if provider, isProvider := blockchain.BeaconClient.(eth2client.ValidatorsProvider); isProvider {
+		pkey, _ := hexutil.Decode(validatorPubKey)
+		k := phase0.BLSPubKey{}
+		x := copy(k[:], pkey[:])
+		if x != 48 {
+			return fmt.Errorf("bad copy of validator public key")
+		}
+		response, err := provider.Validators(blockchain.Ctx, &api.ValidatorsOpts{PubKeys: []phase0.BLSPubKey{k}, State: "head"})
+		if err != nil {
+			return err
+		} else if len(response.Data) == 0 {
+			return fmt.Errorf("could not retrieve info on validator with publick key %v", validatorPubKey)
+		} else {
+			for _, v := range response.Data {
+				log.Infof("Validator index: %v", v.Index)
+				log.Infof("Validator public key: %v", hexutil.Encode(v.Validator.PublicKey[:]))
+				log.Infof("Validator activation eligibility epoch: %v", v.Validator.ActivationEligibilityEpoch)
+				log.Infof("Validator activation epoch: %v", v.Validator.ActivationEpoch)
+				log.Infof("Validator effective balance: %v", v.Validator.EffectiveBalance/1000000000)
+				log.Infof("Validator withdrawal credentials: %v", hexutil.Encode(v.Validator.WithdrawalCredentials))
+			}
+		}
+	} else {
+		return fmt.Errorf("could not get validator interface")
+	}
+	return nil
 }
 
 // ParseValidators parses input to obtain the list of validators.

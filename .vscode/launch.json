@@ -10,7 +10,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "main.go",
-            "args": ["validator-info", "--validators=674", "--num-epochs=3"]
+            "args": ["--auroria","validator","info", "--pub-key","0x8430d6c5425e5b0ea4fe9815e7d2e97042f703b95bbb6a68f6dc91ccaa28b16c6f42361b8578c96ad2b2951dcb7e4de7"]
         }
     ]
 }

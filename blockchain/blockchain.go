@@ -9,11 +9,12 @@ import (
 	eth2client "github.com/attestantio/go-eth2-client"
 	"github.com/attestantio/go-eth2-client/api"
 	"github.com/attestantio/go-eth2-client/http"
-	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/ethclient"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/rs/zerolog"
+
+	"github.com/allisterb/strac/util"
 )
 
 var log = logging.Logger("strac/blockchain")
@@ -77,37 +78,31 @@ func Ping() error {
 	} else {
 		log.Infof("Node at %v is at block %v of %v. Node synced: %v.", HttpUrl, sp.CurrentBlock, sp.HighestBlock, sp.Done())
 	}
+
 	return nil
 }
 
-func Info(genesis bool, validatorPubKey string, peers bool) error {
-	if validatorPubKey != "" {
-		if provider, isProvider := BeaconClient.(eth2client.ValidatorsProvider); isProvider {
-			pkey, _ := hexutil.Decode(validatorPubKey)
-			k := phase0.BLSPubKey{}
-			x := copy(k[:], pkey[:])
-			if x != 48 {
-				return fmt.Errorf("bad copy of validator public key")
-			}
-			response, err := provider.Validators(Ctx, &api.ValidatorsOpts{PubKeys: []phase0.BLSPubKey{k}, State: "head"})
-			if err != nil {
-				return err
-			} else if len(response.Data) != 1 {
-				return fmt.Errorf("length of response data is %v", len(response.Data))
-			} else {
-				for _, v := range response.Data {
-					log.Infof("Validator index: %v", v.Index)
-					log.Infof("Validator public key: %v", hexutil.Encode(v.Validator.PublicKey[:]))
-					log.Infof("Validator activation eligibility epoch: %v", v.Validator.ActivationEligibilityEpoch)
-					log.Infof("Validator activation epoch: %v", v.Validator.ActivationEpoch)
-					log.Infof("Validator effective balance: %v", v.Validator.EffectiveBalance/1000000000)
-					log.Infof("Validator withdrawal credentials: %v", hexutil.Encode(v.Validator.WithdrawalCredentials))
-				}
-			}
-		} else {
-			return fmt.Errorf("could not get validator interface")
+func Info(spec bool, genesis bool, peers bool) error {
+	if spec {
+		specProvider, isProvider := BeaconClient.(eth2client.SpecProvider)
+		if !isProvider {
+			return fmt.Errorf("could not get spec interface")
 		}
-		return nil
+		specResponse, err := specProvider.Spec(Ctx, &api.SpecOpts{})
+		if err != nil {
+			return util.WrapError(err, "failed to obtain spec")
+		}
+		log.Infof("Printing spec...")
+		for k, _v := range specResponse.Data {
+			switch v := _v.(type) {
+			case string:
+				fmt.Printf("%v: %v\n", k, v)
+			case []byte:
+				fmt.Printf("%v: %v\n", k, hexutil.Encode(v))
+			default:
+				fmt.Printf("%v: %v\n", k, v)
+			}
+		}
 	}
 
 	if genesis {
