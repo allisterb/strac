@@ -64,3 +64,14 @@ func BalanceAt(_account string, _block int64) error {
 		return nil
 	}
 }
+
+func AccountAddress(pubkey string) error {
+	log.Infof("Get address for publick key %v", pubkey)
+	pkeyb, err := hexutil.Decode(pubkey)
+	if err != nil {
+		return err
+	}
+	pkey := crypto.Keccak256Hash(pkeyb)
+	log.Infof("%v", hexutil.Encode(crypto.Keccak256(pkey[:])))
+	return nil
+}

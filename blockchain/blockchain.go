@@ -3,6 +3,7 @@ package blockchain
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"time"
 
 	eth2client "github.com/attestantio/go-eth2-client"
@@ -23,13 +24,21 @@ var ExecutionClient *ethclient.Client
 var BeaconClient eth2client.Service
 var Ctx context.Context
 
-func Init(httpUrl string, beaconHttpUrl string, timeout int) error {
-	ctx, _ := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second) //nolint:all
-	client, err := ethclient.DialContext(ctx, httpUrl)
+func InitEC(httpUrl string) error {
+	client, err := ethclient.DialContext(Ctx, httpUrl)
 	if err != nil {
 		return fmt.Errorf("error connecting to node: %v", err)
 	}
-	bclient, err := http.New(ctx,
+	HttpUrl = httpUrl
+	ExecutionClient = client
+	return nil
+}
+
+func InitCC(beaconHttpUrl string, timeout int) error {
+	if BeaconClient != nil {
+		return nil
+	}
+	bclient, err := http.New(Ctx,
 		// WithAddress supplies the address of the beacon node, as a URL.
 		http.WithAddress(beaconHttpUrl),
 		// LogLevel supplies the level of logging to carry out.
@@ -39,14 +48,14 @@ func Init(httpUrl string, beaconHttpUrl string, timeout int) error {
 	if err != nil {
 		return err
 	}
-	HttpUrl = httpUrl
 	BeaconHttpUrl = beaconHttpUrl
-	ExecutionClient = client
 	BeaconClient = bclient
-	Ctx = ctx
 	return nil
 }
 
+func GetChainID() (*big.Int, error) {
+	return ExecutionClient.ChainID(Ctx)
+}
 func Ping() error {
 	chainid, err := ExecutionClient.ChainID(Ctx)
 	if err != nil {

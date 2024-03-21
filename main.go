@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"math/big"
 	"os"
+	"time"
 
 	"github.com/alecthomas/kong"
 	logging "github.com/ipfs/go-log/v2"
@@ -27,9 +30,18 @@ type NewAccountCmd struct {
 	WalletDir string `help:"The directory to create the encrypted wallet (keystore) file."`
 }
 
-type BalanceCmd struct {
-	Account string `help:"The Stratis account to query balance for. 40-byte hex string beginning with 0x"`
+type AccountAddressCmd struct {
+	PubKey string `arg:"" help:"The public key of the account."`
+}
+
+type AccountBalanceCmd struct {
+	Account string `arg:"" help:"The Stratis account to query balance for. 40-byte hex string beginning with 0x"`
 	Block   int64  `help:"The block number to retrieve the account balance at. Omit to query the latest block." default:"0"`
+}
+
+type AccountCmd struct {
+	New     NewAccountCmd     `cmd:"" help:"Create a new Stratis account."`
+	Balance AccountBalanceCmd `cmd:"" help:"Get the balance of a Stratis acount."`
 }
 
 type ValidatorInfoCmd struct {
@@ -40,17 +52,33 @@ type ValidatorInfoCmd struct {
 	NumEpochs  string   `help:"If either start epoch or end epoch is omitted, indicates how many epochs to collect data from the start or before the end epoch." default:""`
 }
 
+type CreateWalletCmd struct {
+	Type string `arg:"" help:"The type of wallet to create. Can be nd or hd."`
+	Name string `arg:"" help:"The name of the wallet."`
+}
+
+type ListWalletCmd struct {
+	Type      string `arg:"" help:"The type of wallet to create. Can be nd or hd."`
+	Name      string `arg:"" help:"The name of the wallet."`
+	WalletDir string `arg:"" help:"The path to the wallet location."`
+}
+type WalletCmd struct {
+	Create CreateWalletCmd `cmd:"createw" help:"Create a wallet."`
+	List   ListWalletCmd   `cmd:"createw" help:"Create a wallet."`
+}
+
 // Command-line arguments
 var CLI struct {
 	Debug         bool             `help:"Enable debug mode."`
-	HttpUrl       string           `help:"The URL of the Stratis execution client HTTP API." default:"http://localhost:8545"`
+	Auroria       bool             `help:"Indicates the Auroria testnet should be used. Thhe execution client HTTP API will default to https://auroria.rpc.stratisevm.com/."`
+	HttpUrl       string           `help:"The URL of the Stratis execution client HTTP API." default:"https://rpc.stratisevm.com"`
 	BeaconHttpUrl string           `help:"The URL of the Stratis consensus client HTTP API." default:"http://localhost:3500"`
 	Timeout       int              `help:"Timeout for network operations." default:"120"`
 	Ping          PingCmd          `cmd:"" help:"Ping the Stratis node. This verifies your Stratis node is up and the execution and consensus client HTTP APIs are reachable by strac."`
 	Info          InfoCmd          `cmd:"" help:"Get information on the Stratis network."`
-	NewAccount    NewAccountCmd    `cmd:"" help:"Create a new Stratis account."`
-	Balance       BalanceCmd       `cmd:"" help:"Get the balance of a Stratis account."`
+	Account       AccountCmd       `cmd:"" help:"Work with Stratis accounts."`
 	ValidatorInfo ValidatorInfoCmd `cmd:"" help:"Get info on Stratis validators."`
+	Wallet        WalletCmd        `cmd:"" help:"Work with wallets"`
 }
 
 var log = logging.Logger("strac/main")
@@ -78,12 +106,46 @@ func main() {
 	renderStr, _ := ascii.RenderOpts("strac", options)
 	fmt.Print(renderStr)
 	ctx := kong.Parse(&CLI)
-	err := blockchain.Init(CLI.HttpUrl, CLI.BeaconHttpUrl, CLI.Timeout)
-	if err != nil {
-		log.Fatalf("error connecting to execution client API at %s or consensus client API at %s: %v", CLI.HttpUrl, CLI.BeaconHttpUrl, err)
-	} else {
-		ctx.FatalIfErrorf(ctx.Run(&kong.Context{}))
+	_ctx, cancel := context.WithTimeout(context.Background(), time.Duration(CLI.Timeout)*time.Second)
+	blockchain.Ctx = _ctx
+	defer cancel()
+	if CLI.Auroria && CLI.HttpUrl == "https://rpc.stratisevm.com" {
+		CLI.HttpUrl = "https://auroria.rpc.stratisevm.com/"
 	}
+	err := blockchain.InitEC(CLI.HttpUrl)
+	if err != nil {
+		log.Fatalf("error connecting to execution client API at %s: %v", CLI.HttpUrl, err)
+	} else {
+
+	}
+	log.Infof("Using execution client API at %v.", CLI.HttpUrl)
+	cid, err := blockchain.GetChainID()
+	if err != nil {
+		log.Fatalf("could not get chain id")
+	}
+	if CLI.Auroria && cid.Cmp(big.NewInt(205205)) != 0 {
+		if cid == big.NewInt(105105) {
+			log.Fatalf("auroria testnet specified but execution client is on mainnet")
+		} else {
+			log.Fatalf("auroria testnet specified but execution client is on chain id %v", cid)
+		}
+	} else if !CLI.Auroria && cid.Cmp(big.NewInt(105105)) != 0 {
+		if cid == big.NewInt(205205) {
+			log.Fatalf("mainnet specified but execution client is on auroria testnet")
+		} else {
+			log.Fatalf("mainnet specified but execution client is on chain id %v", cid)
+		}
+	}
+
+	if util.Contains([]string{"validator"}, ctx.Command()) {
+		err := blockchain.InitCC(CLI.BeaconHttpUrl, CLI.Timeout)
+		if err != nil {
+			log.Fatalf("error connecting to consensus client API at %s: %v", CLI.BeaconHttpUrl, err)
+		} else {
+			ctx.FatalIfErrorf(ctx.Run(&kong.Context{}))
+		}
+	}
+	ctx.FatalIfErrorf(ctx.Run(&kong.Context{}))
 }
 
 func (l *PingCmd) Run(ctx *kong.Context) error {
@@ -98,10 +160,21 @@ func (l *NewAccountCmd) Run(ctx *kong.Context) error {
 	return accounts.NewAccount(&l.WalletDir)
 }
 
-func (l *BalanceCmd) Run(ctx *kong.Context) error {
+func (l *AccountBalanceCmd) Run(ctx *kong.Context) error {
 	return accounts.BalanceAt(l.Account, l.Block)
 }
 
 func (l *ValidatorInfoCmd) Run(ctx *kong.Context) error {
+
 	return validators.Summary(l.Validators, l.StateID, l.Start, l.End, l.NumEpochs)
+}
+
+func (l *CreateWalletCmd) Run(ctx *kong.Context) error {
+	log.Info(l.Type)
+	log.Info(l.Name)
+	return nil
+}
+
+func (l *AccountAddressCmd) Run(ctx *kong.Context) error {
+	return accounts.AccountAddress(l.PubKey)
 }
