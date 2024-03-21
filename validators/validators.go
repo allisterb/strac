@@ -283,10 +283,10 @@ func EpochSummary(validatorsStr []string, stateID string, epoch string) (*valida
 
 	builder.WriteString(fmt.Sprintf("Epoch %d:\n", summary.Epoch))
 	if len(summary.Proposals) > 0 {
-		builder.WriteString("  Proposer validators:\n")
+		builder.WriteString("  Proposer validators: \n")
 		for _, p := range summary.Proposals {
 			validator := validatorsByIndex[p.Proposer]
-			builder.WriteString(fmt.Sprintf("        %s\n", validator.Validator.PublicKey.String()))
+			builder.WriteString(fmt.Sprintf("    %v\n", validator.Index))
 		}
 	}
 	if len(summary.NonParticipatingValidators) > 0 {
@@ -325,10 +325,12 @@ func EpochSummary(validatorsStr []string, stateID string, epoch string) (*valida
 			builder.WriteString(fmt.Sprintf("    %d (slot %d, committee %d, inclusion distance %d)\n", validator.Validator, validator.AttestationData.Slot, validator.AttestationData.Index, validator.InclusionDistance))
 		}
 	}
-	if len(summary.AttestingValidators) > 0 {
-		builder.WriteString("  Attesting validators:\n")
+	if len(summary.NonParticipatingValidators) == 0 && len(summary.IncorrectHeadValidators) == 0 && len(summary.UntimelyHeadValidators) == 0 &&
+		len(summary.UntimelySourceValidators) == 0 && len(summary.IncorrectTargetValidators) == 0 && len(summary.UntimelyTargetValidators) == 0 &&
+		len(summary.AttestingValidators) > 0 {
+		builder.WriteString("  Attesting validators: ")
 		for _, validator := range summary.AttestingValidators {
-			builder.WriteString(fmt.Sprintf("    %v", validator.Validator.String()))
+			builder.WriteString(fmt.Sprintf("    %v\n", validator.Validator.Index))
 		}
 	}
 

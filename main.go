@@ -28,7 +28,7 @@ type InfoCmd struct {
 }
 
 type NewAccountCmd struct {
-	WalletDir string `help:"The directory to create the encrypted wallet (keystore) file."`
+	//WalletDir string `help:"The directory to create the encrypted wallet (keystore) file."`
 }
 
 type AccountAddressCmd struct {
@@ -50,9 +50,9 @@ type ValidatorInfoCmd struct {
 }
 
 type ValidatorPerfCmd struct {
-	Validators []string `help:"A list of validator identifiers: either an index or public keys."`
+	Validators []string `arg:"" help:"A list of validator indices."`
 	StateID    string   `help:"The chain state." default:"head"`
-	Start      string   `help:"The chain epoch to start validator data collection."`
+	Start      string   `help:"The chain epoch to start validator data collection." default:""`
 	End        string   `help:"The chain epoch to end data collection. Defaults to the most recent epoch." default:""`
 	NumEpochs  string   `help:"If either start epoch or end epoch is omitted, indicates how many epochs to collect data from the start or before the end epoch." default:""`
 }
@@ -88,7 +88,7 @@ var CLI struct {
 	Info          InfoCmd      `cmd:"" help:"Get information on the Stratis network."`
 	Account       AccountCmd   `cmd:"" help:"Work with Stratis accounts."`
 	Validator     ValidatorCmd `cmd:"" help:"Get info on Stratis validators."`
-	Wallet        WalletCmd    `cmd:"" help:"Work with wallets"`
+	//Wallet        WalletCmd    `cmd:"" help:"Work with wallets"`
 }
 
 var log = logging.Logger("strac/main")
@@ -147,7 +147,7 @@ func main() {
 		}
 	}
 
-	if util.Contains(ctx.Args, "info") {
+	if util.Contains(ctx.Args, "info") || util.Contains(ctx.Args, "validator") {
 		err := blockchain.InitCC(CLI.BeaconHttpUrl, CLI.Timeout)
 		if err != nil {
 			log.Fatalf("error connecting to consensus client API at %s: %v", CLI.BeaconHttpUrl, err)
@@ -167,7 +167,7 @@ func (l *InfoCmd) Run(ctx *kong.Context) error {
 }
 
 func (l *NewAccountCmd) Run(ctx *kong.Context) error {
-	return accounts.NewAccount(&l.WalletDir)
+	return accounts.NewAccount(nil)
 }
 
 func (l *AccountBalanceCmd) Run(ctx *kong.Context) error {
